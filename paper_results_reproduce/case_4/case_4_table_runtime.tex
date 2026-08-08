@@ -1,0 +1,18 @@
+\begin{table*}[ht]
+\centering
+\caption{Wall-clock time per train/evaluate run on the Sachs dataset. Mean and standard error over 10 splits. Lower is better; the fastest is in bold. Timings are hardware dependent and are given for relative comparison only.}
+\label{tab:sachs_runtime}
+\small
+\begin{tabularx}{\linewidth}{Xr}
+\toprule
+ & Time per run (s) \\
+\midrule
+\texttt{SVI-DAG (noninformative)} & 134.2 $\pm$ 30.9 \\
+\texttt{ProDAG} & 100.2 $\pm$ 4.1 \\
+\texttt{BayesDAG} & 266.5 $\pm$ 13.0 \\
+\texttt{DDS} & 65.1 $\pm$ 1.9 \\
+\texttt{BCD Nets} & 151.1 $\pm$ 2.5 \\
+\texttt{DiBS} & \textbf{5.6 $\pm$ 0.7} \\
+\bottomrule
+\end{tabularx}
+\end{table*}

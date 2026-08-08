@@ -1,0 +1,48 @@
+# ===========================================================================
+# SVI-DAG conda environment -- GPU (NVIDIA, CUDA 12.4 family).
+#
+#     conda env create -f environment.yml
+#     conda activate svidag
+#     pip install -e . --no-deps        # optional, see below
+#     python scripts/check_env.py
+#
+# Or let setup_env.sh do all of that, picking GPU vs CPU for you:
+#
+#     bash setup_env.sh
+#
+# For a machine with no NVIDIA GPU, use environment-cpu.yml instead. Every
+# SVI-DAG number in paper_results_reproduce/ was produced with this package
+# set; see README.md, "Installation".
+#
+# Why conda only supplies Python here, with everything else from pip: the two
+# requirements files are a complete lockfile (direct AND transitive, exact
+# pins). Letting conda resolve any of these packages from its own channels
+# would substitute different builds and defeat the lock. Conda's job in this
+# file is to give pip a clean, isolated Python 3.11 to install into.
+# ===========================================================================
+name: svidag
+
+channels:
+  - conda-forge
+
+dependencies:
+  # 3.11 is what the published runs used. pyproject.toml allows 3.10-3.12.
+  - python=3.11
+  - pip
+
+  - pip:
+      # Order matters: the base lock first, then the CUDA 12.4 wheels on top.
+      - -r requirements.txt
+      - -r requirements-cuda12.txt
+
+      # NOTE: `svidag` itself is deliberately NOT installed here.
+      #
+      # `pip install -e .` would read pyproject.toml, whose dependencies are
+      # unversioned on purpose, and pip could then float a pinned package.
+      # Install it separately with --no-deps once this environment exists:
+      #
+      #     pip install -e . --no-deps
+      #
+      # It is optional either way: main.py, run_local.sh and everything under
+      # paper_results_reproduce/ put src/ on sys.path themselves. The editable
+      # install only makes `import svidag` work from any working directory.

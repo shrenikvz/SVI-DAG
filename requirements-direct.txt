@@ -1,0 +1,63 @@
+# =============================================================================
+# SVI-DAG: DIRECT dependencies, annotated.
+#
+# This file is documentation, not the install target.  It lists only the
+# packages the repository imports directly, with a note on which component
+# needs each one.  Transitive dependencies are deliberately absent, so
+# installing this file would give a package set whose versions drift with
+# whatever PyPI resolves on the day you run it.
+#
+#   ==> To install, use ``requirements.txt`` (the full lockfile). <==
+#
+# Keep this file in sync when a new direct import is introduced, then
+# regenerate the lockfile as described in ``scripts/lock_requirements.md``.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Scientific Python stack
+# -----------------------------------------------------------------------------
+numpy==2.2.0
+scipy==1.14.1
+pandas==2.2.3
+scikit-learn==1.6.0
+matplotlib==3.10.0
+networkx==3.4.2
+tqdm==4.67.1
+
+# -----------------------------------------------------------------------------
+# JAX ecosystem
+# -----------------------------------------------------------------------------
+jax==0.5.0
+jaxlib==0.5.0
+flax==0.10.3                    # SVI-DAG (linen modules, train_state)
+optax==0.2.4                    # SVI-DAG, BCD, DDS
+dm-haiku==0.0.16                # BCD (P-network MLP)
+tensorflow-probability==0.25.0  # BCD (Horseshoe prior), ProDAG (tfp.substrates.jax)
+ott-jax==0.6.0                  # BCD (modern Sinkhorn API)
+
+# -----------------------------------------------------------------------------
+# Causal-discovery toolkits
+# -----------------------------------------------------------------------------
+cdt==0.6.0                      # Sachs ground truth.  NOTE: cdt's top-level
+                                # import pulls torch, which is intentionally
+                                # NOT installed; both Sachs loaders fall back
+                                # to reading cdt's bundled CSV resources
+                                # directly.  See svidag/data.py and
+                                # paper_results_reproduce/case_4/common.py.
+igraph==1.0.0                   # DiBS scale-free graph sampler, BayesDAG
+imageio==2.37.0                 # DiBS -- dibs/utils/__init__.py re-exports
+                                # .visualize, so `import dibs.inference`
+                                # fails without it.  Required by cases 2/3/4.
+
+# -----------------------------------------------------------------------------
+# Test suite
+# -----------------------------------------------------------------------------
+pytest==9.1.1                   # tests/
+
+# -----------------------------------------------------------------------------
+# GPU (CUDA 12.4 family).  Installed via the lockfile; listed here for
+# completeness.  Pinned as a family so the JAX plugin and the CUDA runtime
+# cannot desync.
+# -----------------------------------------------------------------------------
+jax-cuda12-pjrt==0.5.0
+jax-cuda12-plugin==0.5.0

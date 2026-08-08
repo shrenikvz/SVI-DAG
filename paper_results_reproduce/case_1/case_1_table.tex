@@ -1,0 +1,15 @@
+\begin{table*}[ht]
+\centering
+\caption{Effect of domain-informed prior on posterior structure inference (synthetic 2-node graph). Each cell shows the percentage of hard posterior DAG samples classified as the corresponding graph structure.}
+\label{tab:domain_prior_effect}
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\begin{tabularx}{\linewidth}{|*{9}{Y|}}
+\hline
+\multicolumn{3}{|c|}{Incorrect} & \multicolumn{3}{c|}{Noninformative} & \multicolumn{3}{c|}{Correct} \\ \hline
+$\to$ & $\gets$ & $\perp\!\!\!\perp$ & $\to$ & $\gets$ & $\perp\!\!\!\perp$ & $\to$ & $\gets$ & $\perp\!\!\!\perp$ \\ \hline
+\multicolumn{9}{|c|}{\textbf{Linear synthetic data (DAG not identifiable from data)}} \\ \hline
+0.6 & 63.8 & 35.6 & 28.0 & 25.5 & 46.5 & 64.5 & 0.9 & 34.6 \\ \hline
+\multicolumn{9}{|c|}{\textbf{Nonlinear synthetic data (DAG identifiable from data)}} \\ \hline
+1.2 & 38.3 & 60.5 & 28.0 & 18.5 & 53.5 & 69.2 & 0.6 & 30.2 \\ \hline
+\end{tabularx}
+\end{table*}

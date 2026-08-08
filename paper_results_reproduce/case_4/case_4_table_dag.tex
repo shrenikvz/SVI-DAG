@@ -1,0 +1,18 @@
+\begin{table*}[ht]
+\centering
+\caption{Performance on sachs dataset. The averages and standard errors are measured over 10 splits of the data. The best value of each DAG metric is indicated in bold.}
+\label{tab:sachs_dag}
+\small
+\begin{tabularx}{\linewidth}{XXXXX}
+\toprule
+ & Brier score & Exp. SHD & Exp. F1 score (\%) & AUROC (\%) \\
+\midrule
+\texttt{SVI-DAG (noninformative)} & 0.185 $\pm$ 0.007 & 25.70 $\pm$ 0.92 & \textbf{28.95 $\pm$ 1.73} & 58.16 $\pm$ 2.27 \\
+\texttt{ProDAG} & 0.159 $\pm$ 0.003 & \textbf{19.68 $\pm$ 0.35} & 14.32 $\pm$ 1.54 & 52.95 $\pm$ 1.81 \\
+\texttt{BayesDAG} & 0.174 $\pm$ 0.008 & 28.66 $\pm$ 0.78 & 26.75 $\pm$ 2.08 & 62.23 $\pm$ 1.93 \\
+\texttt{DDS} & 0.168 $\pm$ 0.004 & 24.62 $\pm$ 0.56 & 23.21 $\pm$ 1.52 & 51.35 $\pm$ 2.18 \\
+\texttt{BCD Nets} & \textbf{0.153 $\pm$ 0.004} & 20.94 $\pm$ 0.50 & 10.79 $\pm$ 2.16 & 55.91 $\pm$ 2.07 \\
+\texttt{DiBS} & 0.180 $\pm$ 0.004 & 40.74 $\pm$ 0.50 & 27.78 $\pm$ 0.74 & \textbf{65.63 $\pm$ 2.07} \\
+\bottomrule
+\end{tabularx}
+\end{table*}

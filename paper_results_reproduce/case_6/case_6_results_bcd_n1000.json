@@ -1,0 +1,74 @@
+{
+  "config": {
+    "num_replicates": 5,
+    "sample_sizes": [
+      100,
+      316,
+      1000,
+      3162,
+      10000
+    ],
+    "sample_size_log10": [
+      2.0,
+      2.5,
+      3.0,
+      3.5,
+      4.0
+    ],
+    "sample_sizes_in_this_run": [
+      1000
+    ],
+    "replicates_in_this_run": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "scenarios": [
+      {
+        "label": "ER_p50_s80",
+        "p": 50,
+        "s": 80,
+        "sem_type": "nonlinear",
+        "weight_range": [
+          0.3,
+          0.7
+        ],
+        "noise_scale": 1.0
+      }
+    ],
+    "num_posterior_samples": 1000,
+    "threshold": 0.5,
+    "use_cpdag": false,
+    "svidag_num_iters": 1500,
+    "seed": 0,
+    "algorithms_in_this_run": [
+      "BCD Nets"
+    ]
+  },
+  "aggregated": {
+    "BCD Nets": {
+      "ER_p50_s80": {
+        "1000": {
+          "Brier": {
+            "mean": 0.029252984490578317,
+            "se": 0.0003746591812099897
+          },
+          "E_SHD": {
+            "mean": 86.87219999999999,
+            "se": 3.0185025989718794
+          },
+          "E_F1": {
+            "mean": 0.12082433673787599,
+            "se": 0.016828785402046402
+          },
+          "AUROC": {
+            "mean": 0.6773855485232068,
+            "se": 0.014753874308202153
+          }
+        }
+      }
+    }
+  }
+}

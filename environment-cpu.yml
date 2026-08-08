@@ -1,0 +1,33 @@
+# ===========================================================================
+# SVI-DAG conda environment -- CPU only.
+#
+#     conda env create -f environment-cpu.yml
+#     conda activate svidag-cpu
+#     pip install -e . --no-deps        # optional
+#     python scripts/check_env.py
+#
+# Identical to environment.yml minus requirements-cuda12.txt, so JAX runs on
+# the CPU backend. Use this on a machine with no NVIDIA GPU, or on Apple
+# Silicon / AMD, where the pinned CUDA 12.4 wheels do not apply.
+#
+# Expect this to be SLOW. SVI-DAG itself is tolerable on CPU at the small graph
+# sizes (case 1 is a 2-node problem), but the case 2/3/5/6 benchmarks at
+# p = 25-50 and n up to 10^4, and the five baselines, are GPU-shaped workloads.
+# A full case that takes hours on a GPU can take days on CPU. Start with
+#
+#     ./run_local.sh 1
+#     ./run_local.sh 2 --quick --cpu
+#
+# to confirm the pipeline works before committing to a long run.
+# ===========================================================================
+name: svidag-cpu
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11
+  - pip
+
+  - pip:
+      - -r requirements.txt

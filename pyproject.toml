@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "svidag"
+version = "0.1.0"
+description = "SVI-DAG: A Structured Variational Inference Approach to Bayesian Causal Discovery"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Shrenik Zinage" }]
+requires-python = ">=3.10,<3.13"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Deliberately unversioned here.  The authoritative, fully pinned package set
+# lives in ``requirements.txt`` (a complete lockfile, direct + transitive) and
+# is what reproduces the published numbers.  These entries exist only so that
+# ``pip install -e .`` yields a working import of ``svidag``; install the
+# lockfile first, then this package with ``--no-deps``:
+#
+#     pip install -r requirements.txt
+#     pip install -e . --no-deps
+#
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "scikit-learn",
+    "matplotlib",
+    "networkx",
+    "tqdm",
+    "jax",
+    "jaxlib",
+    "flax",
+    "optax",
+]
+
+[project.optional-dependencies]
+# Baselines and the Sachs ground-truth loader.  Same caveat as above: use the
+# lockfile for reproduction.
+baselines = [
+    "dm-haiku",
+    "tensorflow-probability",
+    "ott-jax",
+    "cdt",
+    "igraph",
+    "imageio",
+]
+test = ["pytest"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["svidag*"]
+
+# NOTE: pytest configuration lives in ``pytest.ini`` (it takes precedence over
+# pyproject.toml, and pytest warns if both are present). Do not add a
+# [tool.pytest.ini_options] table here.
