@@ -101,7 +101,7 @@ def main() -> int:
     print(f"[ablation] p={args.p_nodes} s={args.s_edges} n={args.n_train}"
           f" S={args.posterior_samples} iters={args.num_iters} seeds={seeds}")
 
-    # Resume support: mit_preemptable requeues restart the process from the
+    # Resume support: a preemption/requeue restarts the process from the
     # top, so pick up whatever seeds the previous incarnation already wrote.
     rows = []
     if out_path.exists():

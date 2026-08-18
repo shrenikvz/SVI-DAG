@@ -2,9 +2,18 @@
 # ===========================================================================
 # One ablation cell: VARIANT over SEEDS at the graph/budget given by env.
 #
+# Normally submitted by submit_ablation.sh, which forwards every site-
+# specific value via --export.  To submit it directly, supply at least:
+#
+#   sbatch -p <partition> --gres=gpu:1 -c 8 --mem=200G \
+#          --export=ALL,VARIANT=full,P=20,S_EDGES=40,NTRAIN=300,ITERS=2000 \
+#          ablation_cell.sbatch
+#
 # Required via --export: VARIANT.
-# Optional: P (10), S_EDGES (20), NTRAIN (300), ITERS (from profile), SEEDS
-# (0-9), BIAS (0), OUTFILE (default results/ path inside run_ablation.py).
+# Optional: REPO (derived from SLURM_SUBMIT_DIR if unset), CONDA_SH
+# (auto-detected), CONDA_ENV (svidag), P (10), S_EDGES (20), NTRAIN (300),
+# ITERS (from profile), PSAMP (1000), SEEDS (0-9), BIAS (0), OUTFILE
+# (default results/ path inside run_ablation.py).
 #
 # Resume-safe: run_ablation.py skips seeds already in its JSON when the
 # config fingerprint matches, so a preemption/requeue redoes at most one seed.
@@ -16,14 +25,26 @@
 
 set -uo pipefail
 
-REPO=/home/shrenik/SVI-DAG
+# Repo root: forwarded by submit_ablation.sh, else derived from the directory
+# the job was submitted from (this script lives at <repo>/paper_results_reproduce/ablation).
+if [ -z "${REPO:-}" ]; then
+    REPO="$(cd "${SLURM_SUBMIT_DIR:-$PWD}" && cd ../.. && pwd)" 2>/dev/null \
+        || { echo "set REPO=<path to SVI-DAG checkout> via --export" >&2; exit 1; }
+fi
+[ -d "$REPO/paper_results_reproduce/ablation" ] \
+    || { echo "REPO=$REPO is not an SVI-DAG checkout" >&2; exit 1; }
 cd "$REPO/paper_results_reproduce/ablation" || exit 1
 
-echo "host=$(hostname)  job=$SLURM_JOB_ID  start=$(date)"
+echo "host=$(hostname)  job=${SLURM_JOB_ID:-none}  start=$(date)"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || echo "no GPU"
 
-source /orcd/software/core/001/pkg/miniforge/25.11.0-0/etc/profile.d/conda.sh
-conda activate svidag || exit 1
+# Conda: forwarded by submit_ablation.sh, else auto-detected on this node.
+if [ -z "${CONDA_SH:-}" ]; then
+    CONDA_SH="$(conda info --base 2>/dev/null)/etc/profile.d/conda.sh"
+fi
+[ -r "$CONDA_SH" ] || { echo "cannot read CONDA_SH=$CONDA_SH" >&2; exit 1; }
+source "$CONDA_SH"
+conda activate "${CONDA_ENV:-svidag}" || exit 1
 
 export PYTHONHASHSEED=0
 export PYTHONNOUSERSITE=1

@@ -12,9 +12,41 @@ Two studies feed the table:
 | **main** (`run_ablation.py`) | nonlinear ER, p=20, s=40, n=300 (240 train / 60 holdout), 2000 iters, sampling bias 0, 10 seeds, S=1000 | Brier, E-SHD, E-F1, AUROC |
 | **MEC companion** (`run_mec_study.py`) | linear ER, p=10, s=10, n=1000, 1500 iters, profile bias (−1), 10 seeds, S=1000 | MEC-cov |
 
-**Reproduce everything:** `bash submit_ablation.sh` (submits all Slurm jobs +
-a dependent merge/table job). Rebuild the table from existing results only:
+**Reproduce everything** on any Slurm cluster — name your partitions and go:
+
+```bash
+GPU_PARTITION=<your-gpu-partition> CPU_PARTITION=<your-cpu-partition> \
+    bash submit_ablation.sh
+```
+
+That submits every compute job plus a dependent merge/table job. Rebuild the
+table from the committed results without refitting anything:
 `python make_table.py`.
+
+### Cluster settings
+
+`submit_ablation.sh` takes all site-specific values from its CONFIGURATION
+block; edit the file or export the variables before running. Only the first
+two are required — the script exits with a message if they are unset, and
+`sinfo -s` lists what your site offers.
+
+| variable | default | meaning |
+|---|---|---|
+| `GPU_PARTITION` | *(required)* | partition for the GPU jobs |
+| `CPU_PARTITION` | *(required)* | partition for the CPU jobs and the table job |
+| `SLURM_ACCOUNT` | *(unset)* | passed as `-A` if your site requires an account |
+| `SLURM_QOS` | *(unset)* | passed as `-q` if your site requires a QoS |
+| `GPU_GRES` | `gpu:1` | passed as `--gres` |
+| `GPU_SBATCH_EXTRA` | *(empty)* | extra flags, e.g. `--requeue` on a preemptable partition |
+| `GPU_MEM` / `CPU_MEM` / `MEC_MEM` | `200G` / `100G` / `64G` | see the memory note below before lowering `GPU_MEM` |
+| `GPU_TIME` / `CPU_TIME` | `06:00:00` / `10:00:00` | walltime |
+| `GPU_CPUS` / `CPU_CPUS` | `8` / `16` | cores per job |
+| `CONDA_SH` | auto-detected | path to `etc/profile.d/conda.sh`; set it if compute nodes see a different path |
+| `CONDA_ENV` | `svidag` | environment to activate |
+| `LOG_DIR` | `<repo>/logs/ablation_jobs` | where job stdout/stderr land |
+
+The repository root is derived from the script's own location, so a clone
+anywhere works with no path edits.
 
 ## Variants
 
