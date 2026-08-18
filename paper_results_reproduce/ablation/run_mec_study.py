@@ -11,12 +11,6 @@ ITS DEFAULT (-1.0): do NOT export SVIDAG_POSTERIOR_BIAS_INTERCEPT=0 for this
 study -- removing the bias was measured to drive exact-member coverage to
 0.000 for every variant.
 
-The p=10 scale is load-bearing, not a convenience: at p=5 the metric INVERTS
-(mean-field beats the flow at exact hits, measured 0.58 vs 0.08 -- with only
-20 edge slots, sharp independent marginals win), and at p=20 nobody ever
-lands an exact member.  p~10 is the window where exact recovery isolates
-joint expressiveness.  Do not compare MEC-cov across different p.
-
 Writes results/mec_study/ablation_linear_mec_<variant>.json, the files
 make_table.py reads for the MEC-cov column.  Seed derivation, dataset labels
 and fitting go through the same ablation_lib.fit_and_sample as the main
