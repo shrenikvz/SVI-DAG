@@ -49,6 +49,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")  # headless nodes
 import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.ticker as mticker  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 
 _THIS_DIR = Path(__file__).resolve().parent
@@ -144,17 +145,78 @@ DEFAULT_SERIES = [
     "BayesDAG", "DiBS", "DDS", "BCD Nets",
 ]
 
-# (csv column, y label, plot as percentage)
+# (csv column, y label, plot as percentage, y-axis scale)
+#
+# Expected SHD is drawn on a LOG y-axis.  DDS starts an order of magnitude
+# above everyone else in the small-sample regime (672 at n=10 against 85-177
+# for the other five) and decays to 81, so a linear axis has to span 0-700 and
+# squeezes the other five algorithms into the bottom ~17% of the panel, where
+# their curves overlap into a single band.  A log axis gives that band ~45% of
+# the panel height instead and keeps DDS's decay on the same plot -- the range
+# is only 10.9x (62.3 to 677.3), so one decade of log covers everything with no
+# risk of a zero or negative value (expected SHD is a positive count).
 PANELS = [
-    ("Brier", "Brier score",              False),
-    ("E_SHD", "Expected SHD",             False),
-    ("E_F1",  "Expected $F_1$ score (%)", True),
-    ("AUROC", "AUROC (%)",                True),
+    ("Brier", "Brier score",              False, "linear"),
+    ("E_SHD", "Expected SHD (log scale)", False, "log"),
+    ("E_F1",  "Expected $F_1$ score (%)", True,  "linear"),
+    ("AUROC", "AUROC (%)",                True,  "linear"),
 ]
 
-SAMPLE_SIZES = [100, 316, 1000, 3162, 10000]
-XTICK_LABELS = ["$10^{2.0}$", "$10^{2.5}$", "$10^{3.0}$",
-                "$10^{3.5}$", "$10^{4.0}$"]
+# All four sweep cases (2, 3, 5, 6) were extended downward by two half-decades
+# to 10^1 and 10^1.5, so the grid is global again.  Ascending, as the x-axis
+# requires -- unlike case_<N>/common.py, where the list ORDER fixes the RNG
+# seed per cell and must not be sorted.
+SAMPLE_SIZES = [10, 32, 100, 316, 1000, 3162, 10000]
+XTICK_LABELS = ["$10^{1.0}$", "$10^{1.5}$", "$10^{2.0}$", "$10^{2.5}$",
+                "$10^{3.0}$", "$10^{3.5}$", "$10^{4.0}$"]
+
+
+def sample_grid(case_num: int):
+    """(sample sizes, x-tick labels) for one case, ascending."""
+    return SAMPLE_SIZES, XTICK_LABELS
+
+
+# Candidate mantissas for log-axis ticks, densest first.  _log_tick_values
+# walks these and takes the first that yields few enough ticks to label at the
+# panel's full font size.
+_LOG_TICK_LADDERS = (
+    (1, 1.5, 2, 3, 4, 5, 7),
+    (1, 1.5, 2, 3, 5, 7),
+    (1, 2, 3, 5, 7),
+    (1, 2, 4, 7),
+    (1, 2, 5),
+    (1, 3),
+    (1,),
+)
+
+
+def _log_tick_values(lo: float, hi: float, max_ticks: int = 6) -> List[float]:
+    """
+    Tick values for a log axis spanning [lo, hi], as plain numbers.
+
+    Derived from the data rather than hardcoded: expected SHD spans a different
+    range in every case (roughly 22-101 in case 2, 62-677 in case 6), so one
+    fixed ladder cannot serve all of them.  Returns at most ``max_ticks``
+    values, which is what keeps the labels legible at the panel's full font
+    size instead of needing a smaller one.
+    """
+    if not (lo > 0 and hi > lo):
+        return []
+    k0 = int(np.floor(np.log10(lo)))
+    k1 = int(np.ceil(np.log10(hi)))
+    chosen: List[float] = []
+    for subs in _LOG_TICK_LADDERS:
+        ticks = sorted(s * 10.0 ** k for k in range(k0, k1 + 1) for s in subs)
+        ticks = [t for t in ticks if lo <= t <= hi]
+        chosen = ticks or chosen
+        if 2 <= len(ticks) <= max_ticks:
+            return ticks
+    return chosen
+
+
+def _fmt_tick(v: float, _pos=None) -> str:
+    """Plain integer when the value is one ('70', '150'), else one decimal."""
+    return f"{v:.0f}" if float(v).is_integer() else f"{v:g}"
 
 
 # ---------------------------------------------------------------------------
@@ -235,15 +297,17 @@ def plot_case_scenario(
     if not present:
         return None
 
+    sample_sizes, xtick_labels = sample_grid(case_num)
+
     fig, axes = plt.subplots(1, 4, figsize=(19, 4.3))
 
     labels: List[str] = []
     handles: List[Line2D] = []
-    for ax, (col, ylabel, as_pct) in zip(axes, PANELS):
+    for ax, (col, ylabel, as_pct, yscale) in zip(axes, PANELS):
         for algo in present:
             label, color, marker, ls = SERIES_STYLE[algo]
             xs, ys, es = [], [], []
-            for n in SAMPLE_SIZES:
+            for n in sample_sizes:
                 vals = sub[(sub["algorithm"] == algo)
                            & (sub["num_samples"] == n)][col].to_numpy(dtype=float)
                 if vals.size == 0:
@@ -280,11 +344,48 @@ def plot_case_scenario(
                 labels.append(label)
 
         ax.set_xscale("log")
-        ax.set_xticks(SAMPLE_SIZES)
-        ax.set_xticklabels(XTICK_LABELS)
+        ax.set_xticks(sample_sizes)
+        ax.set_xticklabels(xtick_labels)
         ax.minorticks_off()
         ax.set_xlabel("Sample size")
         ax.set_ylabel(ylabel)
+
+        if yscale == "log":
+            ax.set_yscale("log")
+            # minorticks_off() above cleared BOTH axes; a log y-axis spanning
+            # barely one decade needs its minor ticks back or the panel shows
+            # only 10^2, leaving the 62-180 cluster unlabelled.  Plain integers
+            # rather than 10^x: these are SHD counts, and readers compare them
+            # to the edge count (s=80), not to powers of ten.
+            # Every LABELLED tick is a major tick, so it inherits
+            # ytick.labelsize exactly like the three linear panels -- nothing
+            # here overrides the font size.  A plain LogLocator would put a
+            # single major at 100 and force the rest onto minor ticks, which
+            # would then need a smaller size to fit.
+            #
+            # Tick values come from the plotted range, not a fixed list: these
+            # panels span 22-101 in case 2 but 62-677 in case 6, and a ladder
+            # picked for one case leaves the other with two labels.  Plain
+            # integers, not "7 x 10^1" -- readers compare expected SHD against
+            # the edge count s.
+            ax.yaxis.set_major_locator(
+                mticker.FixedLocator(_log_tick_values(*ax.get_ylim()))
+            )
+            ax.yaxis.set_major_formatter(mticker.FuncFormatter(_fmt_tick))
+            # Unlabelled minors purely so the dotted grid still reads as a log
+            # axis between the labelled values.
+            ax.yaxis.set_minor_locator(
+                mticker.LogLocator(base=10.0, subs=tuple(np.arange(2, 10) * 0.1))
+            )
+            ax.yaxis.set_minor_formatter(mticker.NullFormatter())
+            # _PAPER_RCPARAMS zeroes ytick.major.size for borderless panels, but
+            # not the minor size (matplotlib defaults it to 2.0), which would
+            # put tick marks on this panel alone.
+            ax.tick_params(axis="y", which="minor", length=0.0)
+            # Grid on minor ticks too, else the band between decades reads flat.
+            ax.grid(True, which="minor", axis="y", linewidth=0.4, alpha=0.5,
+                    zorder=0)
+
         ax.grid(True, which="major", zorder=0)
         ax.set_axisbelow(True)
 

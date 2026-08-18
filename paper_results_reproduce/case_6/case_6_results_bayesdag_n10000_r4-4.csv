@@ -1,0 +1,2 @@
+scenario,p,s,num_samples,sample_size_log10,replicate,algorithm,Brier,E_SHD,E_F1,AUROC,time_sec
+ER_p50_s80,50,80,10000,4.0,4,BayesDAG,0.019487297162048785,82.932,0.4492621829739815,0.8696914556962025,552.205157995224

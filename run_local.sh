@@ -23,7 +23,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT" || exit 1
 
 ALL_ALGOS="svidag prodag bayesdag dds dibs bcd"
-ALL_SIZES="100 316 1000 3162 10000"
+# Ascending for the work plan.  The RNG seed for a cell comes from its position
+# in case_<N>/common.py's SAMPLE_SIZES (which is NOT sorted, deliberately), not
+# from the order cells are run in here.
+ALL_SIZES="10 32 100 316 1000 3162 10000"
 SWEEP_CASES=" 2 3 5 6 "        # cases with an (algorithm x n x replicate) grid
 
 # ---------------------------------------------------------------------------

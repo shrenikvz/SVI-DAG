@@ -1,0 +1,2 @@
+scenario,p,s,num_samples,sample_size_log10,replicate,algorithm,Brier,E_SHD,E_F1,AUROC,time_sec
+ER_p50_s80,50,80,316,2.5,0,BCD Nets,0.028987869534511376,82.393,0.1503763751491916,0.6210179324894515,1075.5729517936707
