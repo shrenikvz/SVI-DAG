@@ -26,8 +26,7 @@
 #   MEC COMPANION (column 5): linear ER p=10 s=10, n=1000, 1500 iters,
 #     profile sampling bias (-1.0 -- deliberately NOT overridden; bias
 #     removal zeroes exact-member coverage), 10 seeds, via run_mec_study.py.
-#     Same GPU/CPU split by variant.  p=10 is load-bearing; see the note in
-#     run_mec_study.py before changing it.
+#     Same GPU/CPU split by variant.
 #
 # A dependent job merges chunks and renders ablation_table.tex.
 # ===========================================================================

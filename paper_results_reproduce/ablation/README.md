@@ -86,12 +86,6 @@ the 1000 posterior samples; the table reports mean ± s.e. over seeds.
 Only flow-bearing variants score nonzero — exact whole-graph hits require
 joint (correlated) posterior mass that mean-field edges cannot concentrate.
 
-**p=10 is load-bearing.** At p=5 the metric inverts (measured: mean-field
-0.58 vs full 0.08 — with only 20 slots, sharp independent marginals win the
-exact-hit race), and at p=20 no variant ever lands an exact member. p≈10 is
-the window where exact recovery isolates joint expressiveness. Never compare
-MEC-cov across different p.
-
 ## Cluster gotchas (both cost real debugging time)
 
 * Stock-variant fits at p≥20 need `--mem=200G`: XLA's compile of the train
