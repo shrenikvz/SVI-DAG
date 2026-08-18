@@ -9,8 +9,10 @@ grid and write a long-form CSV (plus an aggregated JSON) with the four
 **DAG-level** metrics (Brier, E[SHD], E[F1], AUROC).
 
 Grid (defined in ``common.py``)
-    scenarios   : ER_p10_s20  (1; nonlinear MLP SEM, paper-spec)
-    sample sizes: 100, 316, 1000, 3162, 10000        (5; round(10**[2, 2.5, 3, 3.5, 4]))
+    scenarios   : ER_p25_s40  (1; nonlinear MLP SEM, paper-spec)
+    sample sizes: 100, 316, 1000, 3162, 10000, 10, 32
+                  (7; round(10**[2, 2.5, 3, 3.5, 4, 1, 1.5]) -- see common.py,
+                   the list order is load-bearing and must not be sorted)
     replicates  : 0..NUM_REPLICATES-1                (5)
     algorithms  : 9 rows (3 SVIDAG + 6 baselines)
 

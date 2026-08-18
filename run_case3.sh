@@ -28,7 +28,7 @@
 #SBATCH --mem=64GB
 #SBATCH --time=96:00:00
 #SBATCH --job-name=svidag_case3
-#SBATCH --array=0-29
+#SBATCH --array=0-209
 #SBATCH --output=%x_%A_%a.out
 #SBATCH --error=%x_%A_%a.err
 
@@ -42,29 +42,29 @@
 
 # ===========================================================================
 # Case 3 -- SVI-DAG vs 5 baselines on synthetic nonlinear data (ER, p=25, s=40),
-# DAG-level metrics, 5 sample sizes (n = 10^2..10^4 in half-decades)
+# DAG-level metrics, 7 sample sizes (n = 10^1..10^4 in half-decades)
 # x 5 replicates.
 #
-#   sbatch run_case3.sh                    # the whole grid (30 tasks)
-#   sbatch --array=0-4 run_case3.sh        # SVI-DAG, every n
-#   sbatch --array=19 run_case3.sh         # DDS at n=10^4 only
+#   sbatch run_case3.sh                     # the whole grid (210 tasks)
+#   sbatch --array=0-34 run_case3.sh        # SVI-DAG, every n, every replicate
+#   sbatch --array=135-139 run_case3.sh     # DDS at n=10^4 only
 #
-# ONE ARRAY TASK PER (ALGORITHM, SAMPLE SIZE):
-#   6 algorithms x 5 sample sizes x 1 chunk of REPS_PER_TASK=5 = 30 tasks
-#   task = (algo_idx * 5 + n_idx) * NCHUNK + chunk_idx
-# so tasks 0-4 are svidag at n=100..10^4, tasks 5-9 are prodag, and so on.
+# ONE ARRAY TASK PER (ALGORITHM, SAMPLE SIZE, REPLICATE):
+#   6 algorithms x 7 sample sizes x 5 chunks of REPS_PER_TASK=1 = 210 tasks
+#   task = (algo_idx * 7 + n_idx) * NCHUNK + chunk_idx
+# so tasks 0-34 are svidag (5 consecutive tasks per n, one replicate each),
+# tasks 35-69 are prodag, and so on.
 #
-# Why per-n rather than one task per algorithm: case 3 is the more expensive
-# of the two cases -- ProDAG runs its nonlinear (MLP) mode here and took
-# ~70 MIN PER CELL even at n=10, and DiBS runs the joint nonlinear model whose
-# likelihood is full-batch, so its cost is linear in n. One task covering all
-# five sizes is a poor unit of work, and a timeout in the largest cell would
-# take the cheap cells with it. Splitting per-n bounds that blast radius.
-# ProDAG (tasks 5-9) remains the one algorithm whose cost at n=10^4 is not
-# bounded by any measurement we have -- watch it.
+# Why per-n rather than one task per algorithm: ProDAG runs its nonlinear (MLP)
+# mode here and DiBS runs the joint nonlinear model whose likelihood is
+# full-batch, so its cost is linear in n. One task covering all seven sizes is
+# a poor unit of work, and a timeout in the largest cell would take the cheap
+# cells with it. Splitting per-n bounds that blast radius. ProDAG (tasks 35-69)
+# is by far the most expensive row at this size (~62 min for the worst single
+# replicate) -- watch it.
 #
-# To split further, drop REPS_PER_TASK (e.g. to 1) and widen --array to
-# 6*5*NCHUNK-1 accordingly; the suffix carries the narrowing so the slices
+# To coarsen, raise REPS_PER_TASK back to 5 and narrow --array to
+# 6*7*NCHUNK-1 accordingly; the suffix carries the narrowing so the slices
 # still merge. Or narrow one cell by hand:
 #   CASE3_SAMPLE_SIZES=10000 CASE3_REP_START=0 CASE3_REP_END=1 \
 #       sbatch --array=0 run_case3.sh
@@ -82,9 +82,17 @@
 # ===========================================================================
 
 ALGOS=(svidag prodag bayesdag dds dibs bcd)
-SIZES=(100 316 1000 3162 10000)
+# Must cover every entry of case_3/common.py SAMPLE_SIZES (order here is free --
+# the RNG seed comes from the position in that list, not in this one).
+SIZES=(10 32 100 316 1000 3162 10000)
 NREPS=5
-REPS_PER_TASK=5
+# One REPLICATE per task (not 5). Each task is then a single
+# (algorithm, n, replicate) cell of well under an hour, which both fits
+# inside a short scheduling window and caps the work lost if a task is
+# killed mid-flight. Set back to 5 to amortise the ~9 min XLA compile
+# across a cell's replicates when walltime is not scarce; then also set
+# --array=0-41 below.
+REPS_PER_TASK=1
 NCHUNK=$(( NREPS / REPS_PER_TASK ))
 
 T=$SLURM_ARRAY_TASK_ID

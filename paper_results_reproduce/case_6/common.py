@@ -71,9 +71,19 @@ from svidag.utils import compute_expected_metrics  # noqa: E402  (DAG-level)
 # ---------------------------------------------------------------------------
 THRESHOLD_DEFAULT = 0.5
 
-# Sample-size grid: n = round(10**[2, 2.5, 3, 3.5, 4]) = [100, 316, 1000, 3162, 10000].
-SAMPLE_SIZES: List[int] = [100, 316, 1000, 3162, 10000]
-SAMPLE_SIZE_LOG10: List[float] = [2.0, 2.5, 3.0, 3.5, 4.0]
+# Sample-size grid: n = round(10**[2, 2.5, 3, 3.5, 4, 1, 1.5])
+#                     = [100, 316, 1000, 3162, 10000, 10, 32].
+#
+# ORDER IS LOAD-BEARING -- do not sort this list.  ``_single_algo._cell_index``
+# derives the seed offset from ``SAMPLE_SIZES.index(n)``, so the position of an
+# entry, not its value, fixes the RNG stream for every (n, rep, algo) cell.
+# The two half-decades below 10^2 were added after the original five had been
+# run, and are therefore APPENDED rather than sorted into ascending place:
+# prepending them would shift n_idx for 100..10000 and silently invalidate the
+# committed results for those cells.  Consumers that need ascending order
+# (plotting, x-axes) must sort at the point of use.
+SAMPLE_SIZES: List[int] = [100, 316, 1000, 3162, 10000, 10, 32]
+SAMPLE_SIZE_LOG10: List[float] = [2.0, 2.5, 3.0, 3.5, 4.0, 1.0, 1.5]
 
 NUM_REPLICATES_DEFAULT = 5
 
