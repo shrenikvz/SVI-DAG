@@ -295,7 +295,7 @@ top of every run.
 |---|---|---|---|---|---|---|
 | `SVIDAG_LR` | `1e-3` | `3e-3` | `3e-3` | `3e-3` | `3e-3` | `3e-3` |
 | `SVIDAG_GRAD_CLIP` | `1.0` | `1.0` | `1.0` | `1.0` | `1.0` | `1.0` |
-| `SVIDAG_NUM_ITERS` | `6000` | `1500` | `1500` | `2500` | `1500` | `1500` |
+| `SVIDAG_NUM_ITERS` | `6000` | `3000` | `1500` | `2500` | `1500` | `1500` |
 | `SVIDAG_BATCH_SIZE` | — | `64` | `64` | — | `64` | `64` |
 | `SVIDAG_N_PARTICLES` | `20` | `20` | `20` | `20` | `20` | `20` |
 | `SVIDAG_ETA_R` | `1e-3` | `1e-1` | `1e-1` | `1e-1` | `1e-1` | `1e-1` |
@@ -322,10 +322,21 @@ top of every run.
 | `SVIDAG_OBS_NOISE` | — | `0.5` | `0.5` | — | `0.5` | `0.5` |
 | `SVIDAG_KL_THETA` | — | `0.01` | `0.01` | — | `0.01` | `0.01` |
 | `SVIDAG_MC_SAMPLES` | — | — | `1` | — | — | `1` |
-| `SVIDAG_POSTERIOR_BIAS_INTERCEPT` | — | — | `-1.0` | — | — | `-1.0` |
-| `SVIDAG_POSTERIOR_BIAS_LOG10_SLOPE` | — | `0.75` | `0.0` | — | `0.75` | `0.0` |
+| `SVIDAG_POSTERIOR_BIAS_INTERCEPT` | — | `-1.0` | `-1.0` | — | — | `-1.0` |
+| `SVIDAG_POSTERIOR_BIAS_LOG10_SLOPE` | — | `2.0` | `0.0` | — | `0.75` | `0.0` |
 | `SVIDAG_POSTERIOR_BIAS_REFERENCE_N` | — | `100` | `100` | — | `100` | `100` |
-| `SVIDAG_POSTERIOR_BIAS_FLOOR` | — | `-1.5` | — | — | `-1.5` | — |
+| `SVIDAG_POSTERIOR_BIAS_FLOOR` | — | `-4.5` | — | — | `-1.5` | — |
+| `SVIDAG_POSTERIOR_BIAS_CEILING` | — | `1.0` | — | — | — | — |
+| `SVIDAG_POSTERIOR_SCALE_INTERCEPT` | — | `2.0` | — | — | — | — |
+| `SVIDAG_POSTERIOR_SCALE_LOG10_SLOPE` | — | `0.5` | — | — | — | — |
+| `SVIDAG_POSTERIOR_SCALE_REFERENCE_N` | — | `100` | — | — | — | — |
+| `SVIDAG_POSTERIOR_SCALE_FLOOR` | — | `1.0` | — | — | — | — |
+| `SVIDAG_POSTERIOR_SCALE_CEILING` | — | `2.0` | — | — | — | — |
+| `SVIDAG_POSTERIOR_Z_SCALE_INTERCEPT` | — | `-1.0` | — | — | — | — |
+| `SVIDAG_POSTERIOR_Z_SCALE_LOG10_SLOPE` | — | `-2.0` | — | — | — | — |
+| `SVIDAG_POSTERIOR_Z_SCALE_REFERENCE_N` | — | `100` | — | — | — | — |
+| `SVIDAG_POSTERIOR_Z_SCALE_FLOOR` | — | `0.0` | — | — | — | — |
+| `SVIDAG_POSTERIOR_Z_SCALE_CEILING` | — | `1.0` | — | — | — | — |
 | `SVIDAG_EVAL_EVERY` | `100` | `100` | `100` | `100` | `100` | `100` |
 | `SVIDAG_PATIENCE` | `100000` | `100000` | `100000` | `100000` | `100000` | `100000` |
 
