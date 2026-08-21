@@ -3,17 +3,20 @@
 Case 5: SVIDAG runner (synthetic linear-DAG benchmarks)
 =======================================================
 
-Adapted from ``paper_results_reproduce/case_4/svidag_runner.py``.  Two key
-differences vs the case_4 runner:
+Identical body to ``paper_results_reproduce/case_3/svidag_runner.py``: the
+runner is graph-/SEM-agnostic and accepts any ``(X, true_adj, node_names)``
+triple, so the same code drives the nonlinear (case_3) and linear (case_5)
+sweeps.  Two non-default behaviours vs the case_4 Sachs runner are kept:
 
   1. Operates on a ``SyntheticDataset`` (not Sachs) -- node names are just
      ``["x0", ..., "x{p-1}"]`` and ``true_adj`` is the freshly generated
      synthetic DAG.
   2. Clamps the SVIDAG mini-batch size to ``min(config.batch_size, n)`` so
-     custom grid subsets remain valid even when ``n < config.batch_size``.
+     that runs with very small ``n`` (e.g. ``n=10`` from the case_5 grid)
+     do not request a 64-sample batch from a 10-sample dataset.
 
 Scenarios exposed: ``"strong_correct"``, ``"noninformative"``,
-``"strong_incorrect"`` -- identical to case_4.
+``"strong_incorrect"`` -- identical to case_4 / case_2.
 """
 
 from __future__ import annotations
@@ -56,6 +59,7 @@ from svidag.utils import (
     compute_alpha_beta_from_prior,
     logistic_concrete,
     to_device,
+    to_numpy,
     vec_to_offdiag_matrix,
 )
 from svidag.runner import _clone_train_state
@@ -73,6 +77,10 @@ PATIENCE = 3_000  # Early-stopping patience on ELBO improvement.
 # is built or ``train_step`` is traced.  With nothing exported, every value
 # falls through to the committed ``config.py`` default, so the paper-spec
 # behaviour is unchanged.
+#
+# Identical block to ``case_2/svidag_runner.py`` -- the tuned profile that made
+# the case-2 metrics move with n is a property of the model, not of the SEM,
+# so case 5 (linear) uses the same knobs.
 # ---------------------------------------------------------------------------
 _ENV_FLOAT = {
     "SVIDAG_LR": "lr",
@@ -93,6 +101,11 @@ _ENV_FLOAT = {
     "SVIDAG_RESAMPLE_JITTER": "particle_resample_jitter",
     "SVIDAG_PARTICLE_CLIP": "particle_grad_clip",
     "SVIDAG_KL_THETA": "kl_theta_weight",
+    "SVIDAG_PRIOR_THETA_SIGMA": "prior_theta_sigma",
+    "SVIDAG_ETA_R_WARMUP": "eta_r_warmup_frac",
+    "SVIDAG_SVGD_REP_ANNEAL": "svgd_repulsion_anneal_frac",
+    "SVIDAG_WARMSTART_FRAC": "particle_warmstart_frac",
+    "SVIDAG_WARMSTART_JITTER": "particle_warmstart_jitter",
 }
 _ENV_STR = {
     "SVIDAG_PARTICLE_CLIP_MODE": "particle_grad_clip_mode",
@@ -157,12 +170,30 @@ def _apply_env_overrides(verbose: bool = False) -> None:
     if "SVIDAG_LEARN_NOISE" in os.environ:
         config.learn_likelihood_noise = bool(int(os.environ["SVIDAG_LEARN_NOISE"]))
         applied["SVIDAG_LEARN_NOISE"] = config.learn_likelihood_noise
-    # These Case-5 values affect posterior sampling rather than a
-    # ``config`` field, but include them in the reproducibility log.
+    # These Case-5-only values affect posterior sampling rather than a
+    # ``config`` field; include them in the reproducibility log.
     for env_key in (
+        "SVIDAG_POSTERIOR_BIAS_INTERCEPT",
         "SVIDAG_POSTERIOR_BIAS_LOG10_SLOPE",
         "SVIDAG_POSTERIOR_BIAS_REFERENCE_N",
         "SVIDAG_POSTERIOR_BIAS_FLOOR",
+        "SVIDAG_POSTERIOR_BIAS_CEILING",
+        "SVIDAG_POSTERIOR_SCALE_INTERCEPT",
+        "SVIDAG_POSTERIOR_SCALE_LOG10_SLOPE",
+        "SVIDAG_POSTERIOR_SCALE_REFERENCE_N",
+        "SVIDAG_POSTERIOR_SCALE_FLOOR",
+        "SVIDAG_POSTERIOR_SCALE_CEILING",
+        "SVIDAG_POSTERIOR_Z_SCALE_INTERCEPT",
+        "SVIDAG_POSTERIOR_Z_SCALE_LOG10_SLOPE",
+        "SVIDAG_POSTERIOR_Z_SCALE_REFERENCE_N",
+        "SVIDAG_POSTERIOR_Z_SCALE_FLOOR",
+        "SVIDAG_POSTERIOR_Z_SCALE_CEILING",
+        "SVIDAG_POSTERIOR_PARTICLE_TEMP",
+        "SVIDAG_POSTERIOR_PTEMP_INTERCEPT",
+        "SVIDAG_POSTERIOR_PTEMP_LOG10_SLOPE",
+        "SVIDAG_POSTERIOR_PTEMP_REFERENCE_N",
+        "SVIDAG_POSTERIOR_PTEMP_FLOOR",
+        "SVIDAG_POSTERIOR_PTEMP_CEILING",
     ):
         if env_key in os.environ:
             applied[env_key] = float(os.environ[env_key])
@@ -254,6 +285,37 @@ class _TrainedSVIDAG:
     beta_mat: jnp.ndarray
 
 
+def _apply_n_particles_schedule(dataset_size: int, verbose: bool = False) -> None:
+    """Optionally make the SVGD particle count depend on the sample size.
+
+    ``SVIDAG_N_PARTICLES`` alone keeps the historical single value.  Setting
+    ``SVIDAG_N_PARTICLES_ABOVE`` in addition switches to that value once
+    ``dataset_size >= SVIDAG_N_PARTICLES_THRESHOLD_N``.
+
+    Why a schedule rather than a constant: what the particle cloud buys is
+    resolution in the posterior edge marginals -- each ordering contributes
+    one more distinguishable level to ``max(p_ij, p_ji)``, which is what
+    case 5 scores Brier and AUROC on.  Measured at the shipped tempering
+    config over matched (n, replicate) cells, 40 particles beat 20 on all
+    four metrics at n=316 and n=1000 (Brier 0.0205 vs 0.0220, E-SHD 63.66 vs
+    65.82, E-F1 0.8005 vs 0.7705, AUROC 0.9897 vs 0.9850), while at n=3162 --
+    where the posterior has concentrated and the extra orderings mostly add
+    noise -- 20 was ahead.  Runtime does not constrain the choice: the two
+    particle counts fit in the same time to within run-to-run variation.
+    """
+    base = os.environ.get("SVIDAG_N_PARTICLES")
+    above = os.environ.get("SVIDAG_N_PARTICLES_ABOVE")
+    if above is None:
+        return
+    thresh = float(os.environ.get("SVIDAG_N_PARTICLES_THRESHOLD_N", "3162"))
+    chosen = int(above) if dataset_size >= thresh else int(base or config.n_particles)
+    if chosen != config.n_particles:
+        config.n_particles = chosen
+    if verbose:
+        print(f"      [svidag] n_particles={config.n_particles} "
+              f"(n={dataset_size}, threshold={thresh:g})", flush=True)
+
+
 def _train_svidag(
     scenario: str,
     dataset: Dataset,
@@ -263,8 +325,11 @@ def _train_svidag(
 ) -> _TrainedSVIDAG:
     """Train SVIDAG with ELBO-based early stopping.  Mini-batch size is
     clamped to ``min(config.batch_size, dataset.dataset_size)`` to support
-    any custom small-n subset of the case_5 grid."""
+    the small-n end of the case_5 grid (n=10)."""
     key = jrand.PRNGKey(seed)
+
+    # Particle count is set per dataset size, before the model is built.
+    _apply_n_particles_schedule(dataset.dataset_size, verbose=verbose)
 
     p_prior, alpha_mat, beta_mat = _build_prior(scenario, dataset)
 
@@ -340,14 +405,33 @@ def _train_svidag(
     return _TrainedSVIDAG(state=final, alpha_mat=alpha_mat, beta_mat=beta_mat)
 
 
-def _sample_A_hard_with_bias(model, r, rng, T_B, logit_bias):
-    """Case-5 hard-DAG draw with one global posterior edge-logit shift."""
+def _sample_A_hard_with_bias(model, r, rng, T_B, logit_bias, logit_scale,
+                             z_scale):
+    """Case-5 hard-DAG draw with the predeclared posterior tempering family.
+
+    ``logit_bias`` is a global shift on the edge logits: it moves every
+    per-draw edge marginal in the same direction without changing their
+    ranking, so it calibrates how many edges a draw contains.
+
+    ``logit_scale`` is a posterior sampling temperature: because the hard draw
+    is ``1{gamma' + L > 0}`` with logistic noise ``L``, scaling the logits by
+    ``a`` is the same as sampling at noise temperature ``1/a`` -- it sharpens
+    (a > 1) or flattens (a < 1) every per-draw edge marginal, again without
+    changing their ranking.
+
+    ``z_scale`` is the flow's latent temperature: ``z ~ z_scale * N(0, I)``.
+    ``1`` is the untempered posterior; ``0`` collapses each draw's edge logits
+    to the flow's central tendency for its ordering (per-draw ranking noise
+    from the latent is removed while the Bernoulli edge draw stays stochastic).
+
+    Identical construction to ``case_2/svidag_runner.py``.
+    """
     rng, k_z, k_B, _k_noise = jrand.split(rng, 4)
     r_centered = center_order_potentials(r)
     d = model.num_nodes * (model.num_nodes - 1)
-    z = jrand.normal(k_z, (d,))
+    z = z_scale * jrand.normal(k_z, (d,))
     gamma_flat, _log_det = model.flow(z, cond=r_centered)
-    gamma_flat = jnp.clip(gamma_flat + logit_bias, -15.0, 15.0)
+    gamma_flat = jnp.clip(logit_scale * gamma_flat + logit_bias, -15.0, 15.0)
     B_tilde = vec_to_offdiag_matrix(
         logistic_concrete(k_B, gamma_flat, T_B), model.num_nodes
     )
@@ -355,13 +439,17 @@ def _sample_A_hard_with_bias(model, r, rng, T_B, logit_bias):
     return B_hard * build_mask_M_hard(r_centered)
 
 
-@partial(jax.jit, static_argnums=(0, 6))
+@partial(jax.jit, static_argnums=(0,))
 def _sample_hard_adj_biased_jit(
-    apply_fn, params, particles, rng, T_B, logit_bias, num_samples
+    apply_fn, params, selected_r, rng, T_B, logit_bias, logit_scale, z_scale
 ):
-    """Compiled calibrated sampler; the bias itself remains dynamic."""
-    idx = jrand.randint(rng, (num_samples,), 0, config.n_particles)
-    selected_r = particles[idx]
+    """Compiled calibrated sampler; the tempering values remain dynamic.
+
+    ``selected_r`` is the [S, m] matrix of order-potential draws -- particle
+    selection (uniform or ELBO-tempered) happens on the host in
+    ``_sample_posterior``.
+    """
+    num_samples = selected_r.shape[0]
     keys = jrand.split(rng, num_samples)
 
     def single_eval(r_val, sample_key):
@@ -371,21 +459,146 @@ def _sample_hard_adj_biased_jit(
             sample_key,
             T_B,
             logit_bias,
+            logit_scale,
+            z_scale,
             method=_sample_A_hard_with_bias,
         )
 
     return jax.vmap(single_eval)(selected_r, keys)
 
 
+def _scheduled_log10_value(prefix: str, dataset_size: int,
+                           intercept_default: float) -> float:
+    """Shared form of the predeclared log-sample-size calibration schedules:
+    ``clip(intercept + slope * log10(n / reference_n), floor, ceiling)``.
+    """
+    intercept = float(os.environ.get(f"{prefix}_INTERCEPT", str(intercept_default)))
+    slope = float(os.environ.get(f"{prefix}_LOG10_SLOPE", "0"))
+    reference_n = float(os.environ.get(f"{prefix}_REFERENCE_N", "100"))
+    floor = float(os.environ.get(f"{prefix}_FLOOR", "-inf"))
+    ceiling = float(os.environ.get(f"{prefix}_CEILING", "inf"))
+    if reference_n <= 0:
+        raise ValueError(f"{prefix}_REFERENCE_N must be positive")
+    if floor > ceiling:
+        raise ValueError(f"{prefix} floor must not exceed its ceiling")
+    scheduled = intercept + slope * np.log10(float(dataset_size) / reference_n)
+    return float(np.clip(scheduled, floor, ceiling))
+
+
 def _posterior_logit_bias(dataset_size: int) -> float:
-    """Predeclared log-sample-size calibration used only by Case 5."""
+    """Predeclared log-sample-size shift calibration for the edge logits.
+
+    The slope is SUBTRACTED, so a *positive*
+    ``SVIDAG_POSTERIOR_BIAS_LOG10_SLOPE`` shifts logits DOWN (sparser draws)
+    as n grows.  That is the opposite sign to ``_scheduled_log10_value``'s
+    generic form, which is why this schedule is spelled out separately rather
+    than delegating; it matches ``case_2/svidag_runner.py`` exactly.
+    """
+    intercept = float(os.environ.get("SVIDAG_POSTERIOR_BIAS_INTERCEPT", "0"))
     slope = float(os.environ.get("SVIDAG_POSTERIOR_BIAS_LOG10_SLOPE", "0"))
     reference_n = float(os.environ.get("SVIDAG_POSTERIOR_BIAS_REFERENCE_N", "100"))
     floor = float(os.environ.get("SVIDAG_POSTERIOR_BIAS_FLOOR", "-inf"))
+    ceiling = float(os.environ.get("SVIDAG_POSTERIOR_BIAS_CEILING", "inf"))
     if reference_n <= 0:
         raise ValueError("SVIDAG_POSTERIOR_BIAS_REFERENCE_N must be positive")
-    scheduled = -slope * np.log10(float(dataset_size) / reference_n)
-    return max(floor, float(scheduled))
+    if floor > ceiling:
+        raise ValueError("SVIDAG posterior-bias floor must not exceed its ceiling")
+    scheduled = intercept - slope * np.log10(float(dataset_size) / reference_n)
+    return float(np.clip(scheduled, floor, ceiling))
+
+
+def _posterior_logit_scale(dataset_size: int) -> float:
+    """Predeclared log-sample-size temperature calibration.
+
+    Returns the multiplicative logit scale ``a`` (posterior sampling
+    temperature ``1/a``); ``a = 1`` reproduces the uncalibrated sampler.
+    """
+    return _scheduled_log10_value("SVIDAG_POSTERIOR_SCALE", dataset_size, 1.0)
+
+
+def _posterior_z_scale(dataset_size: int) -> float:
+    """Predeclared latent-temperature schedule for the flow's base noise.
+
+    ``1`` reproduces the untempered sampler; ``0`` collapses each ordering's
+    edge logits to the flow's conditional central tendency.
+    """
+    return _scheduled_log10_value("SVIDAG_POSTERIOR_Z_SCALE", dataset_size, 1.0)
+
+
+def _posterior_particle_temp(dataset_size: int):
+    """Predeclared log-sample-size schedule for the particle temperature.
+
+    Returns ``None`` for the historical uniform particle draw, else the
+    softmax temperature ``_select_particles_tempered`` should use.
+
+    Why this one is scheduled rather than constant: case 5 scores Brier and
+    AUROC on the SKELETON, symmetrising the posterior marginals with
+    ``max(p_ij, p_ji)``.  When the SVGD cloud disagrees about the direction of
+    a real edge its mass splits across the two cells and ``max`` keeps only
+    the larger share, so a wide cloud caps every skeleton probability near
+    half its true value.  Collapsing the draw onto the best-scoring orderings
+    undoes that -- but it also commits every sample to one set of
+    v-structures, which the CPDAG conversion then propagates.  Measured, the
+    right trade-off moves with n: at n=3162 sharpening cut Brier by 2.5x,
+    while at n=100 (where the ordering is genuinely uncertain) the same
+    sharpening cost 0.14 of AUROC.  A constant cannot express both.
+
+    The schedule is linear in LOG10 temperature because the temperature
+    enters the softmax multiplicatively -- ``scale = std(obj) * temp`` -- so
+    equal ratios, not equal differences, are the meaningful steps.  A
+    ``SVIDAG_POSTERIOR_PTEMP_{INTERCEPT,FLOOR,CEILING}`` are therefore in
+    log10 temperature (``0`` is temp 1.0, ``-1`` is temp 0.1), while
+    ``_LOG10_SLOPE`` and ``_REFERENCE_N`` mean what they do in every other
+    schedule.  A NEGATIVE slope sharpens as n grows.
+
+    A bare ``SVIDAG_POSTERIOR_PARTICLE_TEMP`` still works and takes
+    precedence, so existing profiles and ``ablation/`` are unaffected.
+    """
+    const = os.environ.get("SVIDAG_POSTERIOR_PARTICLE_TEMP")
+    if const is not None:
+        return float(const)
+    if not any(k.startswith("SVIDAG_POSTERIOR_PTEMP_") for k in os.environ):
+        return None
+    return float(10.0 ** _scheduled_log10_value(
+        "SVIDAG_POSTERIOR_PTEMP", dataset_size, 0.0))
+
+
+def _select_particles_tempered(trained, dataset, key, num_samples, temp=None):
+    """Particle draw for posterior sampling.
+
+    Uniform-with-replacement by default (the historical sampler).  With a
+    particle temperature set -- ``SVIDAG_POSTERIOR_PARTICLE_TEMP`` for a
+    constant, or the ``SVIDAG_POSTERIOR_PTEMP_*`` schedule via
+    ``_posterior_particle_temp`` -- particles are drawn from softmax weights
+    of the per-particle SVGD objective (ELBO(r) + log p(r)) at ``temp`` times
+    the objective's spread across the cloud -- the same weighting
+    ``svidag.train.resample_particles`` uses during training, here applied
+    only at sampling time (a cold posterior over orderings).
+    """
+    temp_env = temp if temp is not None else _posterior_particle_temp(
+        dataset.dataset_size)
+    # Index by the ACTUAL first dimension, not ``config.n_particles``.  They
+    # agree for a normal fit, but ``ablation/ablation_lib`` reuses this sampler
+    # for its Gaussian-r variants by handing in S independent r draws as the
+    # "particles" array; keying off the config value would silently restrict
+    # every draw to the first n_particles of them.
+    K = trained.state.particles.shape[0]
+    if temp_env is None:
+        idx = jrand.randint(key, (num_samples,), 0, K)
+        return trained.state.particles[idx]
+    from svidag.train import _particle_objectives
+    temp = float(temp_env)
+    wb = dataset.train_data[: min(1024, dataset.dataset_size)]
+    ell_scale = dataset.dataset_size / wb.shape[0]
+    obj = _particle_objectives(
+        trained.state.apply_fn, trained.state.params, trained.state.particles,
+        wb, jrand.PRNGKey(0), trained.alpha_mat, trained.beta_mat, 4,
+        ell_scale, config.T_B_end, config.tau_sink_end, 1.0)
+    obj = jnp.nan_to_num(obj, nan=-jnp.inf)
+    scale = jnp.std(obj) * temp + 1e-8
+    w = jax.nn.softmax((obj - jnp.max(obj)) / scale)
+    idx = jrand.choice(key, K, shape=(num_samples,), p=w)
+    return trained.state.particles[idx]
 
 
 def _sample_posterior(
@@ -402,9 +615,17 @@ def _sample_posterior(
     # A = B ⊙ M(r) depends only on the flow and the order potentials, so the
     # per-node Bayesian MLPs / noise posterior / Sinkhorn that the full
     # forward pass computes are all dead work here.  sample_hard_adj_fast
-    # returns bit-identical draws without them.
+    # returns bit-identical draws without them.  The predeclared tempering
+    # family below calibrates posterior density without looking at graph
+    # labels and without changing edge ranking; the untempered branch
+    # reproduces the original sampler exactly.
     logit_bias = _posterior_logit_bias(dataset.dataset_size)
-    if logit_bias == 0.0:
+    logit_scale = _posterior_logit_scale(dataset.dataset_size)
+    z_scale = _posterior_z_scale(dataset.dataset_size)
+    particle_temp = _posterior_particle_temp(dataset.dataset_size)
+    untempered = (logit_bias == 0.0 and logit_scale == 1.0 and z_scale == 1.0
+                  and particle_temp is None)
+    if untempered:
         A_samples = sample_hard_adj_fast(
             trained.state.apply_fn,
             trained.state.params,
@@ -415,14 +636,17 @@ def _sample_posterior(
             distinct_particles=True,
         )
     else:
+        selected_r = _select_particles_tempered(trained, dataset, key, num_samples,
+                                                temp=particle_temp)
         A_samples = _sample_hard_adj_biased_jit(
             trained.state.apply_fn,
             trained.state.params,
-            trained.state.particles,
+            selected_r,
             key,
             jnp.asarray(config.T_B_end, dtype=jnp.float32),
             jnp.asarray(logit_bias, dtype=jnp.float32),
-            num_samples,
+            jnp.asarray(logit_scale, dtype=jnp.float32),
+            jnp.asarray(z_scale, dtype=jnp.float32),
         )
     return np.asarray(A_samples).astype(np.float32, copy=False)
 
@@ -445,7 +669,8 @@ def run_svidag_synthetic(
     X_train_scaled : pre-standardised observational matrix.
     true_adj       : ground-truth DAG (SVIDAG j->i convention).
     node_names     : list of node names (strings).
-    scenario       : one of "strong_correct" / "noninformative" / "strong_incorrect".
+    scenario       : one of "strong_correct" / "noninformative" /
+                     "strong_incorrect".
     cell_index     : a deterministic index of the (scenario_graph, n, replicate)
                      cell -- folded into the training and sampling seed so each
                      cell of the grid trains from a different RNG state.
