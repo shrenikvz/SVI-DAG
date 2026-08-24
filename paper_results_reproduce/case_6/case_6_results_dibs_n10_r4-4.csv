@@ -1,0 +1,2 @@
+scenario,p,s,num_samples,sample_size_log10,replicate,algorithm,Brier,E_SHD,E_F1,AUROC,time_sec
+ER_p50_s80,50,80,10,1.0,4,DiBS,0.03202142856416046,84.75,0.02384639046591594,0.5629193037974684,28.802199840545654

@@ -1,0 +1,28 @@
+.cursorrules
+**/__pycache__/
+*.pyc
+.DS_Store
+
+# Virtual environments
+.venv/
+venv/
+
+# Packaging / test caches
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# Slurm job output.  Array tasks drop one pair of these per task in the
+# directory the job was submitted from (the repository root).
+*.out
+*.err
+
+# Per-cell logs written by ./run_local.sh (one file per algorithm/sample-size
+# cell).  The results themselves land in paper_results_reproduce/ and ARE
+# tracked; these are just the console transcripts.
+logs/
+
+# Editor / agent session state (contains scratch worktree copies of the repo)
+.claude/
+.cursor/

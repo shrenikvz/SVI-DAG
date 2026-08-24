@@ -1,0 +1,118 @@
+{
+  "config": {
+    "num_splits": 10,
+    "num_posterior_samples": 1000,
+    "split_mode": "kfold",
+    "threshold": 0.5,
+    "metric_modes": [
+      "dag",
+      "cpdag"
+    ],
+    "svidag_num_iters": 60000,
+    "seed": 0,
+    "algorithms_in_this_run": [
+      "SVI-DAG (noninformative)"
+    ]
+  },
+  "per_split": {
+    "dag": {
+      "SVI-DAG (noninformative)": [
+        {
+          "Brier": 0.24990250044144743,
+          "E_SHD": 44.269,
+          "E_F1": 0.2252955565979902,
+          "AUROC": 0.5160024154589372
+        },
+        {
+          "Brier": 0.25697964432842096,
+          "E_SHD": 42.145,
+          "E_F1": 0.18210046198093827,
+          "AUROC": 0.46105072463768115
+        },
+        {
+          "Brier": 0.24052418066382514,
+          "E_SHD": 41.288,
+          "E_F1": 0.22653095058259748,
+          "AUROC": 0.5304951690821256
+        }
+      ]
+    },
+    "cpdag": {
+      "SVI-DAG (noninformative)": [
+        {
+          "Brier": 0.3000418714337955,
+          "E_SHD": 39.09,
+          "E_F1": 0.48480021864549294,
+          "AUROC": 0.5457957957957958
+        },
+        {
+          "Brier": 0.32876568906527176,
+          "E_SHD": 36.617,
+          "E_F1": 0.4470197852948744,
+          "AUROC": 0.49024024024024027
+        },
+        {
+          "Brier": 0.323943179905889,
+          "E_SHD": 37.269,
+          "E_F1": 0.44597307509123424,
+          "AUROC": 0.5015015015015015
+        }
+      ]
+    }
+  },
+  "aggregated": {
+    "dag": {
+      "SVI-DAG (noninformative)": {
+        "Brier": {
+          "mean": 0.24913544181123118,
+          "se": 0.004765740771760123
+        },
+        "E_SHD": {
+          "mean": 42.56733333333333,
+          "se": 0.8860707897478872
+        },
+        "E_F1": {
+          "mean": 0.21130898972050863,
+          "se": 0.0146086175379379
+        },
+        "AUROC": {
+          "mean": 0.5025161030595813,
+          "se": 0.021150596387565904
+        }
+      }
+    },
+    "cpdag": {
+      "SVI-DAG (noninformative)": {
+        "Brier": {
+          "mean": 0.3175835801349854,
+          "se": 0.008880649502638381
+        },
+        "E_SHD": {
+          "mean": 37.65866666666667,
+          "se": 0.7400027777725662
+        },
+        "E_F1": {
+          "mean": 0.45926435967720053,
+          "se": 0.012771504355386789
+        },
+        "AUROC": {
+          "mean": 0.5125125125125125,
+          "se": 0.01695618580228722
+        }
+      }
+    }
+  },
+  "gate_config_snapshot": {
+    "NUM_SPLITS_geometry": 10,
+    "folds_executed": 3,
+    "SVIDAG_NUM_ITERS": 60000,
+    "NUM_POSTERIOR_SAMPLES": 1000,
+    "SPLIT_MODE": "kfold",
+    "SEED": 0,
+    "THRESHOLD": 0.5,
+    "sinkhorn_log_space": true,
+    "elbo_mc_samples": 1,
+    "n_particles": 50,
+    "sinkhorn_iters": 300
+  }
+}
