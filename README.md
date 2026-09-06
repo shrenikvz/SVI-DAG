@@ -8,15 +8,6 @@ Official implementation of **"SVI-DAG: A Structured Variational Inference Approa
 > This code base is refactored by AI (Claude), and AI can make mistakes.
 > Please feel free to open up any issue when you have any trouble or questions regarding the code.
 
-## 📋 Overview
-
-SVI-DAG (**S**tructured **V**ariational **I**nference over **DAG**s) is a Bayesian causal discovery method that learns a posterior distribution over directed acyclic graphs (DAGs) from observational data. Instead of treating every edge as an independent Bernoulli variable, SVI-DAG models the dependencies between edges with a conditional normalizing flow and explores orderings with Stein variational gradient descent (SVGD). Our key contributions include:
-
-- **Edge-dependent posterior**: A normalizing flow `q(γ | r)` over edge logits, conditioned on node order potentials `r`, captures correlated and multimodal posteriors that mean-field factorizations cannot represent
-- **SVGD over orderings**: A particle cloud over the order potentials `r`, mapped to permutations through a Sinkhorn relaxation, gives broad mode coverage during optimization
-- **Domain-informed priors**: Prior beliefs about edges enter as a Logistic-Beta prior over the edge logits, so domain knowledge acts as an inductive bias during the search rather than a post-hoc filter
-- **Competitive with five Bayesian baselines**: Evaluated against ProDAG, BayesDAG, DDS, DiBS and BCD Nets on linear and nonlinear synthetic graphs (25 and 50 nodes) and on the Sachs protein-signaling network, with both DAG and Markov-equivalence-class (CPDAG) metrics and calibrated uncertainty
-
 ## 🛠️ Installation
 
 ### Prerequisites
