@@ -1,4 +1,4 @@
-# SVI-DAG: Structured Variational Inference for Bayesian Causal Discovery
+# A Structured Variational Inference Approach to Bayesian Causal Discovery
 
 
 Official implementation of **"SVI-DAG: A Structured Variational Inference Approach to Bayesian Causal Discovery"** ([arXiv:2608.04930](https://arxiv.org/abs/2608.04930)).
